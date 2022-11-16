@@ -1,2 +1,6 @@
 * text=auto
 *.go text eol=lf
+
+# Normalize line endings for testable examples on Windows:
+# https://github.com/golang/go/issues/51269
+*.md text eol=lf
