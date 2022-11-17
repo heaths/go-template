@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/heaths/go-console"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/language"
 )
 
@@ -58,20 +59,12 @@ func TestParamFunc(t *testing.T) {
 			} else if tt.wantErr {
 				t.Fatal("expected error")
 			}
-
-			if got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			assert.Equal(t, tt.want, got)
 
 			// Run it again and make sure the value is cached.
 			got, err = sut("name", "unexpected")
-			if err != nil {
-				t.Fatal("unexpected error:", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -102,9 +95,8 @@ func TestPluralize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Pluralize(tt.count, "thing"); got != tt.want {
-				t.Errorf("want %q, got %q", tt.want, got)
-			}
+			got := Pluralize(tt.count, "thing")
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -129,9 +121,8 @@ func TestLowercase(t *testing.T) {
 	sut := LowercaseFunc(language.English)
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
-			if got := sut(tt.value); got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			got := sut(tt.value)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -157,9 +148,8 @@ func TestTitlecase(t *testing.T) {
 	sut := TitlecaseFunc(language.English)
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
-			if got := sut(tt.value); got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			got := sut(tt.value)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -184,9 +174,8 @@ func TestUppercase(t *testing.T) {
 	sut := UppercaseFunc(language.English)
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
-			if got := sut(tt.value); got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			got := sut(tt.value)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

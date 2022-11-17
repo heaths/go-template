@@ -12,6 +12,7 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/heaths/go-console"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -24,14 +25,17 @@ Project "{{param "name" | titlecase}}" is an example.
 func TestProcessor_Execute(t *testing.T) {
 	t.Parallel()
 
+	var err error
 	con := console.Fake(
 		console.WithStdin(bytes.NewBufferString("template\n")),
 		console.WithStderrTTY(true),
 	)
 
 	srcFS := afero.NewMemMapFs()
-	srcFS.Mkdir("testdata", 0755)
-	afero.WriteFile(srcFS, "testdata/a.md", []byte(a), 0644)
+	err = srcFS.Mkdir("testdata", 0755)
+	assert.NoError(t, err)
+	err = afero.WriteFile(srcFS, "testdata/a.md", []byte(a), 0644)
+	assert.NoError(t, err)
 
 	dstFS := afero.NewMemMapFs()
 
@@ -46,21 +50,15 @@ func TestProcessor_Execute(t *testing.T) {
 	proc.Initialize()
 
 	params := make(map[string]string)
-	err := proc.Execute("testdata", params)
-	if err != nil {
-		t.Fatalf("failed to process template: %v", err)
-	}
+	err = proc.Execute("testdata", params)
+	assert.NoError(t, err, "failed to process template")
 
 	const path = "testdata/a.md"
 	file, err := dstFS.Open(path)
-	if err != nil {
-		t.Fatalf("failed to open %q: %v", path, err)
-	}
+	assert.NoError(t, err, "failed to open %q", path)
 
 	got, err := io.ReadAll(file)
-	if err != nil {
-		t.Fatalf("failed to read %q: %v", path, err)
-	}
+	assert.NoError(t, err, "failed to read %q", path)
 
 	want := heredoc.Doc(`
 		# Template
@@ -68,9 +66,7 @@ func TestProcessor_Execute(t *testing.T) {
 		Project "Template" is an example.
 		`)
 
-	if string(got) != want {
-		t.Fatalf("want %q, got %q", want, string(got))
-	}
+	assert.Equal(t, want, string(got))
 }
 
 func TestIsTemplate(t *testing.T) {
@@ -95,13 +91,10 @@ func TestIsTemplate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sut, err := template.New(tt.name).Parse(tt.template)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			assert.NoError(t, err)
 
-			if got := isTemplate(sut); got != tt.want {
-				t.Fatalf("want %t, got %t", tt.want, got)
-			}
+			got := isTemplate(sut)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
