@@ -21,7 +21,10 @@ func ExampleApply() {
 	)
 	params := make(map[string]string)
 
-	err := template.Apply(testdata, con, params)
+	err := template.Apply(testdata, params,
+		template.WithOutput(con.Stderr(), con.IsStderrTTY()),
+		template.WithInput(con.Stdin()),
+	)
 	if err != nil {
 		log.Fatalln("failed to apply templates:", err)
 	}

@@ -62,14 +62,14 @@ func (p Processor) Execute(root fs.FS, params map[string]string) error {
 	err := fs.WalkDir(root, ".", func(path string, d fs.DirEntry, err error) (_ error) {
 		// TODO: Bubble up errors to channel but carry on with as many files as possible.
 		if err != nil {
-			p.warn("failed to walk %q: %v\n", path, err)
+			p.logWarning("failed to walk %q: %v\n", path, err)
 			return
 		}
 
 		switch {
 		// TODO: Take options for exclusions including some defaults, or func for caller to to validate.
 		case d.Name() == ".git":
-			p.info("skipping %q", path)
+			p.logVerbose("skipping %q", path)
 			return
 		case d.IsDir():
 			return
@@ -78,7 +78,7 @@ func (p Processor) Execute(root fs.FS, params map[string]string) error {
 		t := template.New(d.Name()).Funcs(funcs)
 		t, err = t.ParseFS(root, path)
 		if err != nil {
-			p.warn("failed to parse %q: %v\n", path, err)
+			p.logWarning("failed to parse %q: %v\n", path, err)
 			return
 		}
 
@@ -86,13 +86,13 @@ func (p Processor) Execute(root fs.FS, params map[string]string) error {
 		stdout := &bytes.Buffer{}
 		err = t.Execute(stdout, nil)
 		if err != nil {
-			p.warn("failed to process %q: %v\n", path, err)
+			p.logWarning("failed to process %q: %v\n", path, err)
 			return
 		}
 
 		_, err = io.Copy(os.Stdout, stdout)
 		if err != nil {
-			p.warn("failed to write %q: %v\n", path, err)
+			p.logWarning("failed to write %q: %v\n", path, err)
 			return
 		}
 
@@ -110,13 +110,13 @@ func (p Processor) Execute(root fs.FS, params map[string]string) error {
 	return fmt.Errorf("failed to process %s", pluralize(p.errors, "file"))
 }
 
-func (p Processor) info(format string, v ...any) {
+func (p Processor) logVerbose(format string, v ...any) {
 	if p.Verbose {
 		p.Log.Printf(format, v...)
 	}
 }
 
-func (p *Processor) warn(format string, v ...any) {
+func (p *Processor) logWarning(format string, v ...any) {
 	p.errors++
 	p.Log.Printf(format, v...)
 }

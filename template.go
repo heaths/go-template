@@ -4,19 +4,58 @@
 package template
 
 import (
-	_fs "io/fs"
+	"io"
+	"io/fs"
+	"log"
 
-	"github.com/heaths/go-console"
 	"github.com/heaths/go-template/internal/processor"
+	"golang.org/x/text/language"
 )
 
-func Apply(fs _fs.FS, con console.Console, params map[string]string) error {
-	proc := processor.Processor{
-		Stderr: con.Stderr(),
-		Stdin:  con.Stdin(),
-		IsTTY:  con.IsStderrTTY(),
+// Options to pass to Apply.
+type ApplyOption func(*processor.Processor)
+
+// Applies parameters to all templates with the given root directory.
+func Apply(root fs.FS, params map[string]string, options ...ApplyOption) error {
+	proc := new(processor.Processor)
+	for _, opt := range options {
+		opt(proc)
 	}
 	proc.Initialize()
 
-	return proc.Execute(fs, params)
+	return proc.Execute(root, params)
+}
+
+// Specify the output Writer and whether it represents a TTY.
+// By default this is os.Stderr. isTTY depends on whether os.Stderr
+// is redirected.
+func WithOutput(w io.Writer, isTTY bool) ApplyOption {
+	return func(p *processor.Processor) {
+		p.Stderr = w
+		p.IsTTY = isTTY
+	}
+}
+
+// Specify the input Reader. By default this is os.Stdin.
+func WithInput(r io.Reader) ApplyOption {
+	return func(p *processor.Processor) {
+		p.Stdin = r
+	}
+}
+
+// Specify the language for any template function that needs it.
+// By default this is language.English.
+func WithLanguage(language language.Tag) ApplyOption {
+	return func(p *processor.Processor) {
+		*p.Language = language
+	}
+}
+
+// Specify the logger to write to and whether to log verbose output.
+// By default this is log.Default() without verbose logging.
+func WithLogger(log *log.Logger, verbose bool) ApplyOption {
+	return func(p *processor.Processor) {
+		p.Log = log
+		p.Verbose = verbose
+	}
 }
