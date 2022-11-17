@@ -55,3 +55,19 @@ jobs:
       with:
         only-new-issues: true
         skip-pkg-cache: true
+
+
+  check:
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    needs:
+    - test
+    steps:
+    - name: check
+      run: |
+        if [[ "${{ needs.test.result }}" == "success" ]]; then
+          echo -e "\e[32mSuccess\e[0m"
+        else
+          echo -e "\e[31mFailed\e[0m"
+          exit 1
+        fi
