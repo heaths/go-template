@@ -52,7 +52,7 @@ func (p *Processor) Initialize() {
 	}
 }
 
-func (p Processor) Execute(root fs.FS, params map[string]string) error {
+func (p *Processor) Execute(root fs.FS, params map[string]string) error {
 	funcs := template.FuncMap{
 		"param":     functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
 		"titlecase": functions.TitleFunc(*p.Language),
@@ -110,7 +110,7 @@ func (p Processor) Execute(root fs.FS, params map[string]string) error {
 	return fmt.Errorf("failed to process %s", pluralize(p.errors, "file"))
 }
 
-func (p Processor) logVerbose(format string, v ...any) {
+func (p *Processor) logVerbose(format string, v ...any) {
 	if p.Verbose {
 		p.Log.Printf(format, v...)
 	}
