@@ -5,27 +5,30 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/heaths/go-template"
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	params := make(map[string]string)
+	var params map[string]string
 	verbose := false
 	cmd := &cobra.Command{
 		Use:   "[flags] [root]",
 		Short: "Process template files in a root directory (default is $PWD)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := "."
+			root := "."
 			if len(args) > 0 {
-				dir = args[0]
+				root = args[0]
+			}
+
+			if params == nil {
+				params = make(map[string]string)
 			}
 
 			return template.Apply(
-				os.DirFS(dir),
+				root,
 				params,
 				template.WithLogger(log.Default(), verbose),
 			)

@@ -5,7 +5,6 @@ package template
 
 import (
 	"io"
-	"io/fs"
 	"log"
 
 	"github.com/heaths/go-template/internal/processor"
@@ -16,7 +15,7 @@ import (
 type ApplyOption func(*processor.Processor)
 
 // Applies parameters to all templates with the given root directory.
-func Apply(root fs.FS, params map[string]string, options ...ApplyOption) error {
+func Apply(root string, params map[string]string, options ...ApplyOption) error {
 	proc := new(processor.Processor)
 	for _, opt := range options {
 		opt(proc)
@@ -52,7 +51,7 @@ func WithLanguage(language language.Tag) ApplyOption {
 }
 
 // Specify the logger to write to and whether to log verbose output.
-// By default this is log.Default() without verbose logging.
+// No logging is performed by default.
 func WithLogger(log *log.Logger, verbose bool) ApplyOption {
 	return func(p *processor.Processor) {
 		p.Log = log
