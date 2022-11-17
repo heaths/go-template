@@ -2,7 +2,10 @@
   "version": "0.2",
   "language": "en",
   "words": [
-    "GOVERSION"
+    "GOVERSION",
+    "testdata",
+    "titlecase",
+    "worktree"
   ],
   "overrides": [
     {

@@ -45,7 +45,7 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: ${{ env.GOVERSION }}
-        cache: false # Set to `true` when dependencies are added.
+        cache: true
     - name: Test
       run: GOOS=${{ matrix.goos }} go test ./... -cover -v
     - name: Lint
