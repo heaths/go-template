@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/heaths/go-console"
+	"golang.org/x/text/language"
 )
 
 func TestParamFunc(t *testing.T) {
@@ -31,11 +32,12 @@ func TestParamFunc(t *testing.T) {
 
 	for _, tt := range tests {
 		con := console.Fake(
-			console.WithStdin(bytes.NewBufferString(tt.stdin + "\n")),
+			console.WithStdin(bytes.NewBufferString(tt.stdin+"\n")),
+			console.WithStderrTTY(true),
 		)
 
 		params := make(map[string]string)
-		sut := ParamFunc(con, params)
+		sut := ParamFunc(con.Stdin(), con.Stderr(), con.IsStderrTTY(), params)
 
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := sut("name", "world", "Who should I greet")
@@ -80,7 +82,7 @@ func TestTitle(t *testing.T) {
 		},
 	}
 
-	sut := TitleFunc()
+	sut := TitleFunc(language.English)
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
 			if got := sut(tt.value); got != tt.want {
