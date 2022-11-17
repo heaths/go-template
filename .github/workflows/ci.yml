@@ -56,7 +56,6 @@ jobs:
         only-new-issues: true
         skip-pkg-cache: true
 
-
   check:
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}

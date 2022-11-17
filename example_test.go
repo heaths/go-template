@@ -16,6 +16,7 @@ import (
 func ExampleApply() {
 	testdata := os.DirFS("./testdata")
 	con := console.Fake(
+		console.WithStderrTTY(true),
 		console.WithStdin(bytes.NewBufferString("template\n")),
 	)
 	params := make(map[string]string)

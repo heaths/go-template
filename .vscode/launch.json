@@ -6,7 +6,11 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/apply"
+      "program": "${workspaceFolder}/cmd/apply",
+      "args": [
+        "./testdata"
+      ],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
