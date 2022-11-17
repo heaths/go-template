@@ -10,6 +10,9 @@ trim_trailing_whitespace = true
 end_of_line = lf
 indent_style = tab
 
+[*.md]
+end_of_line = lf
+
 [*{.json, .yml}]
 indent_size = 2
 indent_style = space
