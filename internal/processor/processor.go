@@ -60,11 +60,12 @@ func (p *Processor) Initialize() {
 
 func (p *Processor) Execute(root string, params map[string]string) error {
 	funcs := template.FuncMap{
-		"lowercase": functions.LowercaseFunc(*p.Language),
 		"param":     functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
-		"pluralize": functions.Pluralize,
+		"lowercase": functions.LowercaseFunc(*p.Language),
 		"titlecase": functions.TitlecaseFunc(*p.Language),
 		"uppercase": functions.UppercaseFunc(*p.Language),
+		// TODO: accept string from `param` for count.
+		// "pluralize": functions.Pluralize,
 	}
 
 	// cspell:ignore IOFS

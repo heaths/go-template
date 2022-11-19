@@ -17,23 +17,47 @@ cache can be pre-populated as well.
 ```golang
 import (
     "log"
-    "os"
 
-    "github.com/heaths/go-console"
     "github.com/heaths/go-template"
 )
 
 func Example() {
-    dir := os.DirFS(".")
-    con := console.System()
     params := make(map[string]string)
-
-    err := template.Apply(dir, con, params)
+    err := template.Apply("testdata", params,
+        template.WithLogger(log.Default(), true),
+    )
     if err != nil {
-        log.Fatalln("failed to process templates:", err)
+        log.Fatal(err)
     }
 }
 ```
+
+## Templates
+
+Templates are processed using [`text/template`](https://pkg.go.dev/text/template).
+Template files contain a mix of text and actions surrounded by `{{` and `}}` e.g.,
+
+```markdown
+# {{param "name" "" "What is the project name?" | titlecase}}
+
+This is an example.
+```
+
+### Functions
+
+In addition to [built-in](https://pkg.go.dev/text/template#hdr-Functions) functions,
+the following functions are also available:
+
+* `param <name> [<default> [<prompt>]]`\
+  Replace with a parameter named `<name>`, or prompt using an optional `<default>`
+  with an optional `<prompt>`. If a `<prompt>` is not specified, the required
+  `<name>` is used.
+* `lowercase <string>`\
+  Change the case of `<string>` to all lowercase characters.
+* `titlecase <string>`\
+  Change the case of `<string>` to Title Case characters.
+* `uppercase <string>`\
+  Change the case of `<string>` to UPPERCASE characters.
 
 ## License
 
