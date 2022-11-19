@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/heaths/go-console"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/language"
 )
 
@@ -15,25 +16,33 @@ func TestParamFunc(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		stdin string
-		want  string
+		name    string
+		stdin   string
+		tty     bool
+		want    string
+		wantErr bool
 	}{
 		{
 			name: "default",
+			tty:  true,
 			want: "world",
 		},
 		{
 			name:  "override",
 			stdin: "Earth",
+			tty:   true,
 			want:  "Earth",
+		},
+		{
+			name:    "cannot prompt",
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		con := console.Fake(
 			console.WithStdin(bytes.NewBufferString(tt.stdin+"\n")),
-			console.WithStderrTTY(true),
+			console.WithStderrTTY(tt.tty),
 		)
 
 		params := make(map[string]string)
@@ -42,29 +51,83 @@ func TestParamFunc(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := sut("name", "world", "Who should I greet")
 			if err != nil {
-				t.Error("unexpected error:", err)
-				return
-			}
+				if tt.wantErr {
+					return
+				}
 
-			if got != tt.want {
-				t.Errorf("want %q, got %q", tt.want, got)
-				return
+				t.Fatal("unexpected error:", err)
+			} else if tt.wantErr {
+				t.Fatal("expected error")
 			}
+			assert.Equal(t, tt.want, got)
 
 			// Run it again and make sure the value is cached.
 			got, err = sut("name", "unexpected")
-			if err != nil {
-				t.Fatal("unexpected error:", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestTitle(t *testing.T) {
+func TestPluralize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		count int
+		want  string
+	}{
+		{
+			name: "zero",
+			want: "0 things",
+		},
+		{
+			name:  "singular",
+			count: 1,
+			want:  "1 thing",
+		},
+		{
+			name:  "plural",
+			count: 2,
+			want:  "2 things",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Pluralize(tt.count, "thing")
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestLowercase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		value string
+		want  string
+	}{
+		{
+			value: "lOrD oF tHe RiNgs",
+			want:  "lord of the rings",
+		},
+		{
+			value: "the hobbit",
+			want:  "the hobbit",
+		},
+	}
+
+	sut := LowercaseFunc(language.English)
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			got := sut(tt.value)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestTitlecase(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -82,12 +145,37 @@ func TestTitle(t *testing.T) {
 		},
 	}
 
-	sut := TitleFunc(language.English)
+	sut := TitlecaseFunc(language.English)
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
-			if got := sut(tt.value); got != tt.want {
-				t.Fatalf("want %q, got %q", tt.want, got)
-			}
+			got := sut(tt.value)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestUppercase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		value string
+		want  string
+	}{
+		{
+			value: "lOrD oF tHe RiNgs",
+			want:  "LORD OF THE RINGS",
+		},
+		{
+			value: "the hobbit",
+			want:  "THE HOBBIT",
+		},
+	}
+
+	sut := UppercaseFunc(language.English)
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			got := sut(tt.value)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

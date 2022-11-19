@@ -53,8 +53,30 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 	}
 }
 
-func TitleFunc(lang language.Tag) func(string) string {
+func Pluralize(count int, thing string) string {
+	if count == 1 {
+		return fmt.Sprint(count, " ", thing)
+	}
+
+	return fmt.Sprintf("%d %ss", count, thing)
+}
+
+func LowercaseFunc(lang language.Tag) func(string) string {
+	c := cases.Lower(lang)
+	return func(s string) string {
+		return c.String(s)
+	}
+}
+
+func TitlecaseFunc(lang language.Tag) func(string) string {
 	c := cases.Title(lang)
+	return func(s string) string {
+		return c.String(s)
+	}
+}
+
+func UppercaseFunc(lang language.Tag) func(string) string {
+	c := cases.Upper(lang)
 	return func(s string) string {
 		return c.String(s)
 	}

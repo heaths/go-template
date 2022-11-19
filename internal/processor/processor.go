@@ -5,16 +5,17 @@ package processor
 
 // cspell:ignore mattn isatty
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"os"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/heaths/go-template/internal/functions"
 	"github.com/mattn/go-isatty"
+	"github.com/spf13/afero"
 	"golang.org/x/text/language"
 )
 
@@ -25,10 +26,11 @@ type Processor struct {
 
 	Language *language.Tag // The language used in some functions.
 
-	OutDir fs.FS // Output directory where files will be written.
-
 	Log     *log.Logger // Optional logger for pertinent information.
 	Verbose bool        // Whether to log verbose information.
+
+	srcFS afero.Fs // The file system for reading templates.
+	dstFS afero.Fs // The file system for writing templates.
 
 	errors int // Number of errors logged (as warning logs).
 }
@@ -47,19 +49,28 @@ func (p *Processor) Initialize() {
 		p.Language = &language.English
 	}
 
-	if p.Log == nil {
-		p.Log = log.New(p.Stderr, "", log.Ltime)
+	if p.srcFS == nil {
+		p.srcFS = afero.NewOsFs()
+	}
+
+	if p.dstFS == nil {
+		p.dstFS = p.srcFS
 	}
 }
 
-func (p *Processor) Execute(root fs.FS, params map[string]string) error {
+func (p *Processor) Execute(root string, params map[string]string) error {
 	funcs := template.FuncMap{
+		"lowercase": functions.LowercaseFunc(*p.Language),
 		"param":     functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
-		"titlecase": functions.TitleFunc(*p.Language),
+		"pluralize": functions.Pluralize,
+		"titlecase": functions.TitlecaseFunc(*p.Language),
+		"uppercase": functions.UppercaseFunc(*p.Language),
 	}
 
-	// TODO: Parallelize work into sync.WaitGroup or errgroup.Group for CPU count.
-	err := fs.WalkDir(root, ".", func(path string, d fs.DirEntry, err error) (_ error) {
+	// cspell:ignore IOFS
+	dir := afero.NewIOFS(p.srcFS)
+
+	err := fs.WalkDir(dir, root, func(path string, d fs.DirEntry, err error) (_ error) {
 		// TODO: Bubble up errors to channel but carry on with as many files as possible.
 		if err != nil {
 			p.logWarning("failed to walk %q: %v\n", path, err)
@@ -70,29 +81,34 @@ func (p *Processor) Execute(root fs.FS, params map[string]string) error {
 		// TODO: Take options for exclusions including some defaults, or func for caller to to validate.
 		case d.Name() == ".git":
 			p.logVerbose("skipping %q", path)
-			return
+			return fs.SkipDir
 		case d.IsDir():
 			return
 		}
+		p.logVerbose("processing %q", path)
 
 		t := template.New(d.Name()).Funcs(funcs)
-		t, err = t.ParseFS(root, path)
+		t, err = t.ParseFS(dir, path)
 		if err != nil {
 			p.logWarning("failed to parse %q: %v\n", path, err)
 			return
 		}
 
-		// TODO: Write to "file~" and move to "file" if successful.
-		stdout := &bytes.Buffer{}
-		err = t.Execute(stdout, nil)
-		if err != nil {
-			p.logWarning("failed to process %q: %v\n", path, err)
+		if !isTemplate(t) {
+			p.logVerbose("skipping non-template %q", path)
 			return
 		}
 
-		_, err = io.Copy(os.Stdout, stdout)
+		var file afero.File
+		file, err = p.dstFS.Create(path)
 		if err != nil {
-			p.logWarning("failed to write %q: %v\n", path, err)
+			p.logWarning("failed to create output %q: %v\n", path, err)
+			return
+		}
+
+		err = t.Execute(file, nil)
+		if err != nil {
+			p.logWarning("failed to process %q: %v\n", path, err)
 			return
 		}
 
@@ -107,24 +123,27 @@ func (p *Processor) Execute(root fs.FS, params map[string]string) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to process %s", pluralize(p.errors, "file"))
+	return fmt.Errorf("failed to process %s", functions.Pluralize(p.errors, "template"))
 }
 
 func (p *Processor) logVerbose(format string, v ...any) {
-	if p.Verbose {
+	if p.Verbose && p.Log != nil {
 		p.Log.Printf(format, v...)
 	}
 }
 
 func (p *Processor) logWarning(format string, v ...any) {
 	p.errors++
-	p.Log.Printf(format, v...)
+	if p.Log != nil {
+		p.Log.Printf(format, v...)
+	}
 }
 
-func pluralize(count int, thing string) string {
-	if count == 1 {
-		return fmt.Sprint(count, thing)
+func isTemplate(t *template.Template) bool {
+	for _, node := range t.Root.Nodes {
+		if node.Type() != parse.NodeText {
+			return true
+		}
 	}
-
-	return fmt.Sprintf("%d %ss", count, thing)
+	return false
 }
