@@ -64,8 +64,7 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 		"lowercase": functions.LowercaseFunc(*p.Language),
 		"titlecase": functions.TitlecaseFunc(*p.Language),
 		"uppercase": functions.UppercaseFunc(*p.Language),
-		// TODO: accept string from `param` for count.
-		// "pluralize": functions.Pluralize,
+		"pluralize": functions.PluralizeFunc,
 	}
 
 	// cspell:ignore IOFS

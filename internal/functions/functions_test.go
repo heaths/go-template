@@ -101,6 +101,50 @@ func TestPluralize(t *testing.T) {
 	}
 }
 
+func TestPluralizeFunc(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		count   interface{}
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "plural int",
+			count: 2,
+			want:  "2 things",
+		},
+		{
+			name:  "singular string",
+			count: "1",
+			want:  "1 thing",
+		},
+		{
+			name:    "nan string",
+			count:   "nan",
+			wantErr: true,
+		},
+		{
+			name:    "bool",
+			count:   true,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := PluralizeFunc(tt.count, "thing")
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestLowercase(t *testing.T) {
 	t.Parallel()
 
