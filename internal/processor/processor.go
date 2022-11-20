@@ -10,12 +10,14 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"strings"
 	"text/template"
 	"text/template/parse"
 
 	"github.com/heaths/go-template/internal/functions"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/afero"
+	"golang.org/x/exp/slices"
 	"golang.org/x/text/language"
 )
 
@@ -24,7 +26,8 @@ type Processor struct {
 	Stdin  io.Reader // The reader from which user input is read.
 	IsTTY  bool      // Whether Stderr is a terminal.
 
-	Language *language.Tag // The language used in some functions.
+	Exclusions []string      // Directories and files to exclude.
+	Language   *language.Tag // The language used in some functions.
 
 	Log     *log.Logger // Optional logger for pertinent information.
 	Verbose bool        // Whether to log verbose information.
@@ -44,6 +47,8 @@ func (p *Processor) Initialize() {
 	if p.Stdin == nil {
 		p.Stdin = os.Stdin
 	}
+
+	normalizeExclusions(p.Exclusions)
 
 	if p.Language == nil {
 		p.Language = &language.English
@@ -78,10 +83,16 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 		}
 
 		switch {
-		// TODO: Take options for exclusions including some defaults, or func for caller to to validate.
-		case d.Name() == ".git":
+		// Always ignore repos to avoid catastrophe.
+		case path == ".git" || path == ".hg":
 			p.logVerbose("skipping %q", path)
 			return fs.SkipDir
+		case slices.Contains(p.Exclusions, path):
+			p.logVerbose("skipping %q", path)
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return
 		case d.IsDir():
 			return
 		}
@@ -146,4 +157,24 @@ func isTemplate(t *template.Template) bool {
 		}
 	}
 	return false
+}
+
+func normalizeExclusions(src []string) {
+	for i, s := range src {
+		s = strings.ReplaceAll(s, "\\", "/")
+		s = strings.TrimRightFunc(s, func(r rune) bool {
+			return r == '/'
+		})
+
+		if strings.HasPrefix(s, "/") {
+			src[i] = s[1:]
+		} else if strings.HasPrefix(s, "./") {
+			src[i] = s[2:]
+		} else {
+			src[i] = s
+		}
+	}
+
+	// TODO: Sort if we need to BinarySearch, but at what threshold is that faster than Contains?
+	// slices.Sort(src)
 }

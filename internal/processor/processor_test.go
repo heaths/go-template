@@ -32,10 +32,12 @@ func TestProcessor_Execute(t *testing.T) {
 	)
 
 	srcFS := afero.NewMemMapFs()
-	err = srcFS.Mkdir("testdata", 0755)
-	assert.NoError(t, err)
-	err = afero.WriteFile(srcFS, "testdata/a.md", []byte(a), 0644)
-	assert.NoError(t, err)
+	assert.NoError(t, srcFS.Mkdir(".git", 0755))
+	assert.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
+	assert.NoError(t, srcFS.Mkdir("build", 0755))
+	assert.NoError(t, afero.WriteFile(srcFS, "build/dat", []byte{00, 01, 02, 03}, 0644))
+	assert.NoError(t, srcFS.Mkdir("testdata", 0755))
+	assert.NoError(t, afero.WriteFile(srcFS, "testdata/a.md", []byte(a), 0644))
 
 	dstFS := afero.NewMemMapFs()
 
@@ -43,6 +45,8 @@ func TestProcessor_Execute(t *testing.T) {
 		Stderr: con.Stderr(),
 		Stdin:  con.Stdin(),
 		IsTTY:  con.IsStderrTTY(),
+
+		Exclusions: []string{"build/"},
 
 		srcFS: srcFS,
 		dstFS: afero.NewCopyOnWriteFs(srcFS, dstFS),
@@ -55,6 +59,12 @@ func TestProcessor_Execute(t *testing.T) {
 	}
 	err = proc.Execute("testdata", params)
 	assert.NoError(t, err, "failed to process template")
+
+	_, err = dstFS.Stat(".git")
+	assert.Error(t, err)
+
+	_, err = dstFS.Stat("build")
+	assert.Error(t, err)
 
 	const path = "testdata/a.md"
 	file, err := dstFS.Open(path)
@@ -100,4 +110,24 @@ func TestIsTemplate(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestNormalizeExclusions(t *testing.T) {
+	src := []string{
+		"/testdata/b",
+		"./testdata/a",
+		"build\\c",
+		"dist/",
+	}
+
+	// Not currently sorted. See comment in normalizeExclusions.
+	dst := []string{
+		"testdata/b",
+		"testdata/a",
+		"build/c",
+		"dist",
+	}
+
+	normalizeExclusions(src)
+	assert.Equal(t, dst, src)
 }
