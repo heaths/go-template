@@ -18,7 +18,7 @@ import (
 const (
 	a = `# {{param "name" "" "What is the project name?" | titlecase}}
 
-Project "{{param "name" | titlecase}}" is an example.
+Project "{{param "name" | titlecase}}" is an example of template repository {{param "github.owner"}}/{{param "github.repo"}}.
 `
 )
 
@@ -49,7 +49,10 @@ func TestProcessor_Execute(t *testing.T) {
 	}
 	proc.Initialize()
 
-	params := make(map[string]string)
+	params := map[string]string{
+		"github.owner": "heaths",
+		"github.repo":  "template-golang",
+	}
 	err = proc.Execute("testdata", params)
 	assert.NoError(t, err, "failed to process template")
 
@@ -63,7 +66,7 @@ func TestProcessor_Execute(t *testing.T) {
 	want := heredoc.Doc(`
 		# Template
 
-		Project "Template" is an example.
+		Project "Template" is an example of template repository heaths/template-golang.
 		`)
 
 	assert.Equal(t, want, string(got))
