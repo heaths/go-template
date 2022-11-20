@@ -46,7 +46,7 @@ func WithInput(r io.Reader) ApplyOption {
 // By default this is language.English.
 func WithLanguage(language language.Tag) ApplyOption {
 	return func(p *processor.Processor) {
-		*p.Language = language
+		p.Language = &language
 	}
 }
 
