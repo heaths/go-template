@@ -121,6 +121,11 @@ func TestPluralizeFunc(t *testing.T) {
 			want:  "1 thing",
 		},
 		{
+			name:    "nan string",
+			count:   "nan",
+			wantErr: true,
+		},
+		{
 			name:    "bool",
 			count:   true,
 			wantErr: true,
@@ -131,7 +136,7 @@ func TestPluralizeFunc(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := PluralizeFunc(tt.count, "thing")
 			if tt.wantErr {
-				assert.EqualError(t, err, "true not a number")
+				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
