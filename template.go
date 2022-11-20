@@ -11,10 +11,10 @@ import (
 	"golang.org/x/text/language"
 )
 
-// Options to pass to Apply.
+// ApplyOption applies options to the processor.
 type ApplyOption func(*processor.Processor)
 
-// Applies parameters to all templates with the given root directory.
+// Apply applies parameters to all templates with the given root directory.
 func Apply(root string, params map[string]string, options ...ApplyOption) error {
 	proc := new(processor.Processor)
 	for _, opt := range options {
@@ -25,7 +25,7 @@ func Apply(root string, params map[string]string, options ...ApplyOption) error 
 	return proc.Execute(root, params)
 }
 
-// Specify the output Writer and whether it represents a TTY.
+// WithOutput specifies the output Writer and whether it represents a TTY.
 // By default this is os.Stderr. isTTY depends on whether os.Stderr
 // is redirected.
 func WithOutput(w io.Writer, isTTY bool) ApplyOption {
@@ -35,14 +35,23 @@ func WithOutput(w io.Writer, isTTY bool) ApplyOption {
 	}
 }
 
-// Specify the input Reader. By default this is os.Stdin.
+// WithInput specifies the input Reader. By default this is os.Stdin.
 func WithInput(r io.Reader) ApplyOption {
 	return func(p *processor.Processor) {
 		p.Stdin = r
 	}
 }
 
-// Specify the language for any template function that needs it.
+// WithExclusions specifies excluded directories and files. These paths should be
+// relative to the root directory passed to Apply. The prefixes "./" and "/" are
+// automatically removed.
+func WithExclusions(exclusions []string) ApplyOption {
+	return func(p *processor.Processor) {
+		p.Exclusions = exclusions
+	}
+}
+
+// WithLanguage specifies the language for any template function that needs it.
 // By default this is language.English.
 func WithLanguage(language language.Tag) ApplyOption {
 	return func(p *processor.Processor) {
@@ -50,7 +59,7 @@ func WithLanguage(language language.Tag) ApplyOption {
 	}
 }
 
-// Specify the logger to write to and whether to log verbose output.
+// WithLogger specifies the logger to write to and whether to log verbose output.
 // No logging is performed by default.
 func WithLogger(log *log.Logger, verbose bool) ApplyOption {
 	return func(p *processor.Processor) {
