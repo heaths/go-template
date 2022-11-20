@@ -52,6 +52,9 @@ the following functions are also available:
   Replace with a parameter named `<name>`, or prompt using an optional `<default>`
   with an optional `<prompt>`. If a `<prompt>` is not specified, the required
   `<name>` is used.
+* `pluralize <count> <thing>`\
+  Append an "s" to `<thing>` if `<count>` is not equal to 1. `<count>` can be
+  either an `int` or a `string` representing an `int` e.g., "1".
 * `lowercase <string>`\
   Change the case of `<string>` to all lowercase characters.
 * `titlecase <string>`\
