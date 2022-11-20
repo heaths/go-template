@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -59,6 +60,19 @@ func Pluralize(count int, thing string) string {
 	}
 
 	return fmt.Sprintf("%d %ss", count, thing)
+}
+
+func PluralizeFunc(count interface{}, thing string) (string, error) {
+	if i, ok := count.(int); ok {
+		return Pluralize(i, thing), nil
+	} else if s, ok := count.(string); ok {
+		if i, err := strconv.Atoi(s); err == nil {
+			return Pluralize(i, thing), nil
+		} else {
+			return "", err
+		}
+	}
+	return "", fmt.Errorf("%v not a number", count)
 }
 
 func LowercaseFunc(lang language.Tag) func(string) string {
