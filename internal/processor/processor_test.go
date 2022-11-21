@@ -6,8 +6,10 @@ package processor
 import (
 	"bytes"
 	"io"
+	"strconv"
 	"testing"
 	"text/template"
+	"time"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/heaths/go-console"
@@ -19,9 +21,12 @@ const (
 	a = `# {{param "name" "" "What is the project name?" | titlecase}}
 
 Project "{{param "name" | titlecase}}" is an example of template repository {{param "github.owner"}}/{{param "github.repo"}}.
+
+Copyright {{date.Local.Year}} {{param "git.name"}} under the [MIT](LICENSE.txt) license.
 `
 )
 
+// cspell:ignore Docf
 func TestProcessor_Execute(t *testing.T) {
 	t.Parallel()
 
@@ -54,6 +59,7 @@ func TestProcessor_Execute(t *testing.T) {
 	proc.Initialize()
 
 	params := map[string]string{
+		"git.name":     "Heath Stewart",
 		"github.owner": "heaths",
 		"github.repo":  "template-golang",
 	}
@@ -68,16 +74,21 @@ func TestProcessor_Execute(t *testing.T) {
 
 	const path = "testdata/a.md"
 	file, err := dstFS.Open(path)
-	assert.NoError(t, err, "failed to open %q", path)
+	if !assert.NoError(t, err, "failed to open %q", path) {
+		return
+	}
 
 	got, err := io.ReadAll(file)
 	assert.NoError(t, err, "failed to read %q", path)
 
-	want := heredoc.Doc(`
+	// There's a small but acceptable window where the year could be different due to TZ offset.
+	want := heredoc.Docf(`
 		# Template
 
 		Project "Template" is an example of template repository heaths/template-golang.
-		`)
+
+		Copyright %s Heath Stewart under the [MIT](LICENSE.txt) license.
+		`, strconv.FormatInt(int64(time.Now().UTC().Year()), 10))
 
 	assert.Equal(t, want, string(got))
 }

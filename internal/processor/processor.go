@@ -65,11 +65,12 @@ func (p *Processor) Initialize() {
 
 func (p *Processor) Execute(root string, params map[string]string) error {
 	funcs := template.FuncMap{
-		"param":     functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
+		"date":      functions.DateFunc,
 		"lowercase": functions.LowercaseFunc(*p.Language),
+		"param":     functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
+		"pluralize": functions.PluralizeFunc,
 		"titlecase": functions.TitlecaseFunc(*p.Language),
 		"uppercase": functions.UppercaseFunc(*p.Language),
-		"pluralize": functions.PluralizeFunc,
 	}
 
 	// cspell:ignore IOFS
