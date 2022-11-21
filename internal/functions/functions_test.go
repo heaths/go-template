@@ -6,6 +6,7 @@ package functions
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/heaths/go-console"
 	"github.com/stretchr/testify/assert"
@@ -16,26 +17,56 @@ func TestParamFunc(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		stdin   string
-		tty     bool
-		want    string
-		wantErr bool
+		name         string
+		defaultValue interface{}
+		stdin        string
+		tty          bool
+		want         string
+		wantErr      bool
 	}{
 		{
-			name: "default",
-			tty:  true,
-			want: "world",
+			name:         "default",
+			defaultValue: "world",
+			tty:          true,
+			want:         "world",
 		},
 		{
-			name:  "override",
-			stdin: "Earth",
+			name:         "override",
+			defaultValue: "world",
+			stdin:        "Earth",
+			tty:          true,
+			want:         "Earth",
+		},
+		{
+			name:         "cannot prompt",
+			defaultValue: "world",
+			wantErr:      true,
+		},
+		{
+			name:         "re-prompt (default)",
+			defaultValue: 2022,
+			stdin:        "world\n",
+			tty:          true,
+			want:         "2022",
+		},
+		{
+			name:  "re-prompt (no default)",
+			stdin: "world",
 			tty:   true,
-			want:  "Earth",
+			want:  "world",
 		},
 		{
-			name:    "cannot prompt",
-			wantErr: true,
+			name:         "re-prompt",
+			defaultValue: 2022,
+			stdin:        "world\n2023",
+			tty:          true,
+			want:         "2023",
+		},
+		{
+			name:         "unsupported",
+			defaultValue: time.Now,
+			tty:          true,
+			wantErr:      true,
 		},
 	}
 
@@ -49,7 +80,7 @@ func TestParamFunc(t *testing.T) {
 		sut := ParamFunc(con.Stdin(), con.Stderr(), con.IsStderrTTY(), params)
 
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := sut("name", "world", "Who should I greet")
+			got, err := sut("name", tt.defaultValue, "Who should I greet")
 			if err != nil {
 				if tt.wantErr {
 					return
@@ -220,6 +251,67 @@ func TestUppercase(t *testing.T) {
 		t.Run(tt.value, func(t *testing.T) {
 			got := sut(tt.value)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestFormat(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		value     interface{}
+		other     string
+		isValid   bool
+		wantValue string
+		wantType  string
+		wantErr   bool
+	}{
+		{
+			name:      "string",
+			value:     "value",
+			other:     "other",
+			wantValue: "value",
+			wantType:  "string",
+			isValid:   true,
+		},
+		{
+			name:      "int",
+			value:     1,
+			other:     "2",
+			wantValue: "1",
+			wantType:  "integer",
+			isValid:   true,
+		},
+		{
+			name:      "int (invalid)",
+			value:     1,
+			other:     "other",
+			wantValue: "1",
+			wantType:  "integer",
+		},
+		{
+			name:    "time (unsupported)",
+			value:   time.Now,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, valueType, valid, err := format(tt.value)
+			if tt.wantErr {
+				assert.Errorf(t, err, "unsupported type")
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantValue, got)
+			assert.Equal(t, tt.wantType, valueType)
+
+			if tt.isValid {
+				assert.True(t, valid(tt.other))
+			}
 		})
 	}
 }
