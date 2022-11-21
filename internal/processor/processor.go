@@ -18,6 +18,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/afero"
 	"golang.org/x/exp/slices"
+	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
 )
 
@@ -26,8 +27,10 @@ type Processor struct {
 	Stdin  io.Reader // The reader from which user input is read.
 	IsTTY  bool      // Whether Stderr is a terminal.
 
-	Exclusions []string      // Directories and files to exclude.
-	Language   *language.Tag // The language used in some functions.
+	Exclusions []string // Directories and files to exclude.
+
+	Language *language.Tag     // The language used in some functions.
+	collator *collate.Collator // The collator used to sort and search for strings.
 
 	Log     *log.Logger // Optional logger for pertinent information.
 	Verbose bool        // Whether to log verbose information.
@@ -48,11 +51,12 @@ func (p *Processor) Initialize() {
 		p.Stdin = os.Stdin
 	}
 
-	normalizeExclusions(p.Exclusions)
-
 	if p.Language == nil {
 		p.Language = &language.English
 	}
+
+	p.collator = collate.New(*p.Language, collate.IgnoreCase)
+	p.normalizeExclusions()
 
 	if p.srcFS == nil {
 		p.srcFS = afero.NewOsFs()
@@ -88,7 +92,7 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 		case path == ".git" || path == ".hg":
 			p.logVerbose("skipping %q", path)
 			return fs.SkipDir
-		case slices.Contains(p.Exclusions, path):
+		case p.exclude(path):
 			p.logVerbose("skipping %q", path)
 			if d.IsDir() {
 				return fs.SkipDir
@@ -151,16 +155,13 @@ func (p *Processor) logWarning(format string, v ...any) {
 	}
 }
 
-func isTemplate(t *template.Template) bool {
-	for _, node := range t.Root.Nodes {
-		if node.Type() != parse.NodeText {
-			return true
-		}
-	}
-	return false
+func (p *Processor) exclude(s string) bool {
+	_, found := slices.BinarySearchFunc(p.Exclusions, s, p.collator.CompareString)
+	return found
 }
 
-func normalizeExclusions(src []string) {
+func (p *Processor) normalizeExclusions() {
+	src := p.Exclusions
 	for i, s := range src {
 		s = strings.ReplaceAll(s, "\\", "/")
 		s = strings.TrimRightFunc(s, func(r rune) bool {
@@ -176,6 +177,14 @@ func normalizeExclusions(src []string) {
 		}
 	}
 
-	// TODO: Sort if we need to BinarySearch, but at what threshold is that faster than Contains?
-	// slices.Sort(src)
+	p.collator.SortStrings(src)
+}
+
+func isTemplate(t *template.Template) bool {
+	for _, node := range t.Root.Nodes {
+		if node.Type() != parse.NodeText {
+			return true
+		}
+	}
+	return false
 }
