@@ -15,6 +15,8 @@ import (
 	"github.com/heaths/go-console"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -43,6 +45,7 @@ func TestProcessor_Execute(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(srcFS, "build/dat", []byte{00, 01, 02, 03}, 0644))
 	assert.NoError(t, srcFS.Mkdir("testdata", 0755))
 	assert.NoError(t, afero.WriteFile(srcFS, "testdata/a.md", []byte(a), 0644))
+	assert.NoError(t, afero.WriteFile(srcFS, "testdata/b.md", []byte("not a template"), 0644))
 
 	dstFS := afero.NewMemMapFs()
 
@@ -51,7 +54,7 @@ func TestProcessor_Execute(t *testing.T) {
 		Stdin:  con.Stdin(),
 		IsTTY:  con.IsStderrTTY(),
 
-		Exclusions: []string{"build/"},
+		Exclusions: []string{"Build/"},
 
 		srcFS: srcFS,
 		dstFS: afero.NewCopyOnWriteFs(srcFS, dstFS),
@@ -63,13 +66,16 @@ func TestProcessor_Execute(t *testing.T) {
 		"github.owner": "heaths",
 		"github.repo":  "template-golang",
 	}
-	err = proc.Execute("testdata", params)
+	err = proc.Execute(".", params)
 	assert.NoError(t, err, "failed to process template")
 
 	_, err = dstFS.Stat(".git")
 	assert.Error(t, err)
 
 	_, err = dstFS.Stat("build")
+	assert.Error(t, err)
+
+	_, err = dstFS.Stat("testdata/b.md")
 	assert.Error(t, err)
 
 	const path = "testdata/a.md"
@@ -123,22 +129,47 @@ func TestIsTemplate(t *testing.T) {
 	}
 }
 
-func TestNormalizeExclusions(t *testing.T) {
+func TestProcessor_exclude(t *testing.T) {
+	t.Parallel()
+
 	src := []string{
-		"/testdata/b",
+		"/testdata/B",
 		"./testdata/a",
 		"build\\c",
-		"dist/",
+		"Dist/",
 	}
 
-	// Not currently sorted. See comment in normalizeExclusions.
+	p := Processor{
+		Exclusions: src,
+		collator:   collate.New(language.English, collate.IgnoreCase),
+	}
+
+	p.normalizeExclusions()
+	assert.True(t, p.exclude("testdata/b"))
+}
+
+func TestProcessor_normalizeExclusions(t *testing.T) {
+	t.Parallel()
+
+	src := []string{
+		"/testdata/B",
+		"./testdata/a",
+		"build\\c",
+		"Dist/",
+	}
+
 	dst := []string{
-		"testdata/b",
-		"testdata/a",
 		"build/c",
-		"dist",
+		"Dist",
+		"testdata/a",
+		"testdata/B",
 	}
 
-	normalizeExclusions(src)
+	p := Processor{
+		Exclusions: src,
+		collator:   collate.New(language.English, collate.IgnoreCase),
+	}
+
+	p.normalizeExclusions()
 	assert.Equal(t, dst, src)
 }

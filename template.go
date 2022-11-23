@@ -44,7 +44,7 @@ func WithInput(r io.Reader) ApplyOption {
 
 // WithExclusions specifies excluded directories and files. These paths should be
 // relative to the root directory passed to Apply. The prefixes "./" and "/" are
-// automatically removed.
+// automatically removed. Comparisons are case-insensitive.
 func WithExclusions(exclusions []string) ApplyOption {
 	return func(p *processor.Processor) {
 		p.Exclusions = exclusions
@@ -52,7 +52,7 @@ func WithExclusions(exclusions []string) ApplyOption {
 }
 
 // WithLanguage specifies the language for any template function that needs it.
-// By default this is language.English.
+// The default is language.English.
 func WithLanguage(language language.Tag) ApplyOption {
 	return func(p *processor.Processor) {
 		p.Language = &language
