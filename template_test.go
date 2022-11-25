@@ -18,3 +18,49 @@ func TestWithLanguage(t *testing.T) {
 
 	assert.Equal(t, language.English, *p.Language)
 }
+
+func TestWithDelims(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		leftDelim  string
+		rightDelim string
+		wantPanic  bool
+	}{
+		{
+			name: "neither",
+		},
+		{
+			name:       "both",
+			leftDelim:  "<%",
+			rightDelim: "%>",
+		},
+		{
+			name:      "left",
+			leftDelim: "<%",
+			wantPanic: true,
+		},
+		{
+			name:       "right",
+			rightDelim: "%>",
+			wantPanic:  true,
+		},
+	}
+
+	p := new(processor.Processor)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.wantPanic {
+				assert.Panics(t, func() {
+					WithDelims(tt.leftDelim, tt.rightDelim)
+				})
+				return
+			}
+
+			WithDelims(tt.leftDelim, tt.rightDelim)(p)
+			assert.Equal(t, tt.leftDelim, p.LeftDelim)
+			assert.Equal(t, tt.rightDelim, p.RightDelim)
+		})
+	}
+}

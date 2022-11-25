@@ -20,11 +20,18 @@ import (
 )
 
 const (
-	a = `# {{param "name" "" "What is the project name?" | titlecase}}
+	content_a = `# {{param "name" "" "What is the project name?" | titlecase}}
 
 Project "{{param "name" | titlecase}}" is an example of template repository {{param "github.owner"}}/{{param "github.repo"}}.
 
 Copyright {{date.Local.Year}} {{param "git.name"}} under the [MIT](LICENSE.txt) license.
+`
+
+	content_a_alt = `# <%param "name" "" "What is the project name?" | titlecase%>
+
+Project "<%param "name" | titlecase%>" is an example of template repository <%param "github.owner"%>/<%param "github.repo"%>.
+
+Copyright <%date.Local.Year%> <%param "git.name"%> under the [MIT](LICENSE.txt) license.
 `
 )
 
@@ -32,71 +39,95 @@ Copyright {{date.Local.Year}} {{param "git.name"}} under the [MIT](LICENSE.txt) 
 func TestProcessor_Execute(t *testing.T) {
 	t.Parallel()
 
-	var err error
-	con := console.Fake(
-		console.WithStdin(bytes.NewBufferString("template\n")),
-		console.WithStderrTTY(true),
-	)
-
-	srcFS := afero.NewMemMapFs()
-	assert.NoError(t, srcFS.Mkdir(".git", 0755))
-	assert.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
-	assert.NoError(t, srcFS.Mkdir("build", 0755))
-	assert.NoError(t, afero.WriteFile(srcFS, "build/dat", []byte{00, 01, 02, 03}, 0644))
-	assert.NoError(t, srcFS.Mkdir("testdata", 0755))
-	assert.NoError(t, afero.WriteFile(srcFS, "testdata/a.md", []byte(a), 0644))
-	assert.NoError(t, afero.WriteFile(srcFS, "testdata/b.md", []byte("not a template"), 0644))
-
-	dstFS := afero.NewMemMapFs()
-
-	proc := Processor{
-		Stderr: con.Stderr(),
-		Stdin:  con.Stdin(),
-		IsTTY:  con.IsStderrTTY(),
-
-		Exclusions: []string{"Build/"},
-
-		srcFS: srcFS,
-		dstFS: afero.NewCopyOnWriteFs(srcFS, dstFS),
-	}
-	proc.Initialize()
-
-	params := map[string]string{
-		"git.name":     "Heath Stewart",
-		"github.owner": "heaths",
-		"github.repo":  "template-golang",
-	}
-	err = proc.Execute(".", params)
-	assert.NoError(t, err, "failed to process template")
-
-	_, err = dstFS.Stat(".git")
-	assert.Error(t, err)
-
-	_, err = dstFS.Stat("build")
-	assert.Error(t, err)
-
-	_, err = dstFS.Stat("testdata/b.md")
-	assert.Error(t, err)
-
-	const path = "testdata/a.md"
-	file, err := dstFS.Open(path)
-	if !assert.NoError(t, err, "failed to open %q", path) {
-		return
+	tests := []struct {
+		name       string
+		leftDelim  string
+		rightDelim string
+		content    string
+	}{
+		{
+			name:    "defaults",
+			content: content_a,
+		},
+		{
+			name:       "alternate delims",
+			leftDelim:  "<%",
+			rightDelim: "%>",
+			content:    content_a_alt,
+		},
 	}
 
-	got, err := io.ReadAll(file)
-	assert.NoError(t, err, "failed to read %q", path)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			con := console.Fake(
+				console.WithStdin(bytes.NewBufferString("template\n")),
+				console.WithStderrTTY(true),
+			)
 
-	// There's a small but acceptable window where the year could be different due to TZ offset.
-	want := heredoc.Docf(`
-		# Template
+			srcFS := afero.NewMemMapFs()
+			assert.NoError(t, srcFS.Mkdir(".git", 0755))
+			assert.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
+			assert.NoError(t, srcFS.Mkdir("build", 0755))
+			assert.NoError(t, afero.WriteFile(srcFS, "build/dat", []byte{00, 01, 02, 03}, 0644))
+			assert.NoError(t, srcFS.Mkdir("testdata", 0755))
+			assert.NoError(t, afero.WriteFile(srcFS, "testdata/a.md", []byte(tt.content), 0644))
+			assert.NoError(t, afero.WriteFile(srcFS, "testdata/b.md", []byte("not a template"), 0644))
 
-		Project "Template" is an example of template repository heaths/template-golang.
+			dstFS := afero.NewMemMapFs()
 
-		Copyright %s Heath Stewart under the [MIT](LICENSE.txt) license.
-		`, strconv.FormatInt(int64(time.Now().UTC().Year()), 10))
+			proc := Processor{
+				Stderr: con.Stderr(),
+				Stdin:  con.Stdin(),
+				IsTTY:  con.IsStderrTTY(),
 
-	assert.Equal(t, want, string(got))
+				LeftDelim:  tt.leftDelim,
+				RightDelim: tt.rightDelim,
+				Exclusions: []string{"Build/"},
+
+				srcFS: srcFS,
+				dstFS: afero.NewCopyOnWriteFs(srcFS, dstFS),
+			}
+			proc.Initialize()
+
+			params := map[string]string{
+				"git.name":     "Heath Stewart",
+				"github.owner": "heaths",
+				"github.repo":  "template-golang",
+			}
+			err = proc.Execute(".", params)
+			assert.NoError(t, err, "failed to process template")
+
+			_, err = dstFS.Stat(".git")
+			assert.Error(t, err)
+
+			_, err = dstFS.Stat("build")
+			assert.Error(t, err)
+
+			_, err = dstFS.Stat("testdata/b.md")
+			assert.Error(t, err)
+
+			const path = "testdata/a.md"
+			file, err := dstFS.Open(path)
+			if !assert.NoError(t, err, "failed to open %q", path) {
+				return
+			}
+
+			got, err := io.ReadAll(file)
+			assert.NoError(t, err, "failed to read %q", path)
+
+			// There's a small but acceptable window where the year could be different due to TZ offset.
+			want := heredoc.Docf(`
+				# Template
+
+				Project "Template" is an example of template repository heaths/template-golang.
+
+				Copyright %s Heath Stewart under the [MIT](LICENSE.txt) license.
+				`, strconv.FormatInt(int64(time.Now().UTC().Year()), 10))
+
+			assert.Equal(t, want, string(got))
+		})
+	}
 }
 
 func TestIsTemplate(t *testing.T) {
