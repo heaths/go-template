@@ -21,6 +21,7 @@ func TestParamFunc(t *testing.T) {
 		defaultValue interface{}
 		stdin        string
 		tty          bool
+		param        string
 		want         string
 		wantErr      bool
 	}{
@@ -63,6 +64,31 @@ func TestParamFunc(t *testing.T) {
 			want:         "2023",
 		},
 		{
+			name:         "boolean (default true)",
+			defaultValue: true,
+			tty:          true,
+			want:         "true",
+		},
+		{
+			name:         "boolean (no)",
+			defaultValue: true,
+			stdin:        "no",
+			tty:          true,
+			want:         "",
+		},
+		{
+			name:         "integer param (no TTY)",
+			defaultValue: 1,
+			param:        "2",
+			want:         "2",
+		},
+		{
+			name:         "invalid integer param (no TTY)",
+			defaultValue: 1,
+			param:        "invalid",
+			wantErr:      true,
+		},
+		{
 			name:         "unsupported",
 			defaultValue: time.Now,
 			tty:          true,
@@ -75,12 +101,16 @@ func TestParamFunc(t *testing.T) {
 			console.WithStdin(bytes.NewBufferString(tt.stdin+"\n")),
 			console.WithStderrTTY(tt.tty),
 		)
+		_, stderr, _ := con.Buffers()
 
 		params := make(map[string]string)
+		if tt.param != "" {
+			params["name"] = tt.param
+		}
 		sut := ParamFunc(con.Stdin(), con.Stderr(), con.IsStderrTTY(), params)
 
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := sut("name", tt.defaultValue, "Who should I greet")
+			got, err := sut("name", tt.defaultValue, "What should I prompt?")
 			if err != nil {
 				if tt.wantErr {
 					return
@@ -90,7 +120,14 @@ func TestParamFunc(t *testing.T) {
 			} else if tt.wantErr {
 				t.Fatal("expected error")
 			}
-			assert.Equal(t, tt.want, got)
+
+			if tt.tty {
+				assert.Contains(t, stderr.String(), "What should I prompt (")
+			}
+
+			if !assert.Equal(t, tt.want, got) {
+				return
+			}
 
 			// Run it again and make sure the value is cached.
 			got, err = sut("name", "unexpected")
@@ -255,40 +292,67 @@ func TestUppercase(t *testing.T) {
 	}
 }
 
-func TestFormat(t *testing.T) {
+func TestConvert(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		value     interface{}
-		other     string
-		isValid   bool
-		wantValue string
-		wantType  string
-		wantErr   bool
+		name         string
+		value        interface{}
+		other        string
+		isOtherValid bool
+		wantValue    string
+		wantType     string
+		wantDisp     string
+		wantErr      bool
 	}{
 		{
-			name:      "string",
-			value:     "value",
-			other:     "other",
-			wantValue: "value",
-			wantType:  "string",
-			isValid:   true,
+			name:         "string",
+			value:        "value",
+			other:        "other",
+			wantValue:    "value",
+			wantType:     "a string",
+			isOtherValid: true,
 		},
 		{
-			name:      "int",
-			value:     1,
-			other:     "2",
-			wantValue: "1",
-			wantType:  "integer",
-			isValid:   true,
+			name:         "int",
+			value:        1,
+			other:        "2",
+			wantValue:    "1",
+			wantType:     "an integer",
+			isOtherValid: true,
 		},
 		{
 			name:      "int (invalid)",
 			value:     1,
 			other:     "other",
 			wantValue: "1",
-			wantType:  "integer",
+			wantType:  "an integer",
+		},
+		{
+			name:         "boolean (true)",
+			value:        true,
+			other:        "y",
+			wantValue:    "true",
+			wantType:     "yes (Y) or no (N)",
+			wantDisp:     "Y/n",
+			isOtherValid: true,
+		},
+		{
+			name:         "boolean (false)",
+			value:        false,
+			other:        "n",
+			wantValue:    "",
+			wantType:     "yes (Y) or no (N)",
+			wantDisp:     "y/N",
+			isOtherValid: true,
+		},
+		{
+			name:      "boolean (invalid)",
+			value:     false,
+			other:     "invalid",
+			wantValue: "",
+			wantType:  "yes (Y) or no (N)",
+			wantDisp:  "y/N",
 		},
 		{
 			name:    "time (unsupported)",
@@ -299,19 +363,26 @@ func TestFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, valueType, valid, err := format(tt.value)
+			value, typeDescription, display, format, err := convert(tt.value)
 			if tt.wantErr {
 				assert.Errorf(t, err, "unsupported type")
 				return
+			} else if !assert.NoError(t, err) {
+				return
 			}
 
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantValue, got)
-			assert.Equal(t, tt.wantType, valueType)
+			_, ok := format(value)
+			assert.True(t, ok)
+			assert.Equal(t, tt.wantValue, value)
+			assert.Equal(t, tt.wantType, typeDescription)
 
-			if tt.isValid {
-				assert.True(t, valid(tt.other))
+			if tt.wantDisp == "" {
+				tt.wantDisp = tt.wantValue
 			}
+
+			_, ok = format(tt.other)
+			assert.Equal(t, tt.isOtherValid, ok)
+			assert.Equal(t, tt.wantDisp, display())
 		})
 	}
 }
