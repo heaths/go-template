@@ -27,6 +27,8 @@ type Processor struct {
 	Stdin  io.Reader // The reader from which user input is read.
 	IsTTY  bool      // Whether Stderr is a terminal.
 
+	LeftDelim  string   // Left delimiter e.g., "{{".
+	RightDelim string   // Right delimiter e.g., "}}".
 	Exclusions []string // Directories and files to exclude.
 
 	Language *language.Tag     // The language used in some functions.
@@ -104,6 +106,10 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 		p.logVerbose("processing %q", path)
 
 		t := template.New(d.Name()).Funcs(funcs)
+		if p.LeftDelim != "" && p.RightDelim != "" {
+			t = t.Delims(p.LeftDelim, p.RightDelim)
+		}
+
 		t, err = t.ParseFS(dir, path)
 		if err != nil {
 			p.logWarning("failed to parse %q: %v\n", path, err)

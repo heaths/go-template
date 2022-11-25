@@ -42,6 +42,19 @@ func WithInput(r io.Reader) ApplyOption {
 	}
 }
 
+// WithDelims specifies alternate delimiters to open and close template expressions.
+// The defaults are "{{" and "}}". Both or neither must be non-empty or this function panics.
+func WithDelims(left, right string) ApplyOption {
+	if left != right && (left == "" || right == "") {
+		panic("both or neither left and right must be non-empty")
+	}
+
+	return func(p *processor.Processor) {
+		p.LeftDelim = left
+		p.RightDelim = right
+	}
+}
+
 // WithExclusions specifies excluded directories and files. These paths should be
 // relative to the root directory passed to Apply. The prefixes "./" and "/" are
 // automatically removed. Comparisons are case-insensitive.
