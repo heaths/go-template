@@ -72,6 +72,20 @@ the following functions are also available:
 * `date.Year`\
   Returns the current UTC year.
 
+Note that `date` functions including `Format`, `Local`, and `Year` are function calls
+and need to be closed in parenthesis if you want to pipe to another function like `printf`:
+
+```text
+{{param "copyright" ((date.Year) | printf "Copyright %d") "What is the copyright year?"}}
+```
+
+To require an integer when prompting for the `copyright` parameter,
+a better example is to pass the `int` that `date.Year` returns:
+
+```text
+Copyright {{param "copyright" (date.Year) "What is the copyright year?"}}
+```
+
 ## License
 
 Licensed under the [MIT](LICENSE.txt) license.
