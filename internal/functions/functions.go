@@ -23,12 +23,14 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 				return
 			}
 
-			var typeDescription string
-			var format func(string) (string, bool)
-			_, typeDescription, _, format, err = convert(args[0])
+			var param paramValue
+			param, err = fromDefaultValue(args[0])
+			if err != nil {
+				return
+			}
 
-			if value, ok = format(value); !ok {
-				return "", fmt.Errorf("invalid parameter %q value: %s; expected %s", name, value, typeDescription)
+			if value, ok = param.Format(value); !ok {
+				return "", fmt.Errorf("invalid parameter %q value: %s; expected %s", name, value, param.Description())
 			}
 
 			return
@@ -37,16 +39,14 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 				return "", fmt.Errorf("cannot prompt for parameter %q", name)
 			}
 
-			var typeDescription string
-			var defaultDisplay func() string
-			var format func(string) (string, bool)
-
-			defaultValue := ""
+			var param paramValue
 			if len(args) > 0 {
-				defaultValue, typeDescription, defaultDisplay, format, err = convert(args[0])
+				param, err = fromDefaultValue(args[0])
 				if err != nil {
 					return
 				}
+			} else {
+				param = &stringValue{""}
 			}
 
 			prompt := name
@@ -64,7 +64,7 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 			reader := bufio.NewReader(r)
 			for {
 				// Assume color support since we're on a TTY.
-				fmt.Fprintf(w, "\033[32m%s? \033[90m[%s]\033[0m: ", prompt, defaultDisplay())
+				fmt.Fprintf(w, "\033[32m%s? \033[90m[%s]\033[0m: ", prompt, param.Display())
 
 				value, err = reader.ReadString('\n')
 				if err != nil {
@@ -73,15 +73,15 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 
 				value = strings.TrimSpace(value)
 				if value == "" {
-					value = defaultValue
+					value = param.String()
 					break
 				}
 
-				if value, ok = format(value); ok {
+				if value, ok = param.Format(value); ok {
 					break
 				}
 
-				fmt.Fprintf(w, "\033[31mExpected %s. Please try again.\033[0m\n", typeDescription)
+				fmt.Fprintf(w, "\033[31mExpected %s. Please try again.\033[0m\n", param.Description())
 			}
 
 			params[name] = value
@@ -131,63 +131,4 @@ func UppercaseFunc(lang language.Tag) func(string) string {
 	return func(s string) string {
 		return c.String(s)
 	}
-}
-
-func convert(v any) (defaultValue, typeDescription string, defaultDisplay func() string, format func(string) (string, bool), err error) {
-	if s, ok := v.(string); ok || v == nil {
-		return s,
-			"a string",
-			func() string { return s },
-			func(s string) (string, bool) { return s, true },
-			nil
-	}
-
-	if i, ok := v.(int); ok {
-		id := func() string { return strconv.FormatInt(int64(i), 10) }
-		return id(),
-			"an integer",
-			id,
-			func(s string) (string, bool) {
-				_, err := strconv.ParseInt(s, 10, 32)
-				return s, err == nil
-			},
-			nil
-	}
-
-	if b, ok := v.(bool); ok {
-		// text/template's `if` treats zero values as false.
-		id := func() string {
-			if b {
-				return "true"
-			}
-			return ""
-		}
-		return id(),
-			"yes (Y) or no (N)",
-			func() string {
-				if b {
-					return "Y/n"
-				}
-				return "y/N"
-			},
-			func(s string) (string, bool) {
-				if s == "" {
-					return id(), true
-				}
-				if strings.EqualFold(s, "y") ||
-					strings.EqualFold(s, "yes") ||
-					strings.EqualFold(s, "true") {
-					return "true", true
-				}
-				if strings.EqualFold(s, "n") ||
-					strings.EqualFold(s, "no") ||
-					strings.EqualFold(s, "false") {
-					return "", true
-				}
-				return "", false
-			},
-			nil
-	}
-
-	return "", "", nil, nil, fmt.Errorf("unsupported type %v", v)
 }

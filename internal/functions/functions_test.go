@@ -51,10 +51,11 @@ func TestParamFunc(t *testing.T) {
 			want:         "2022",
 		},
 		{
-			name:  "re-prompt (no default)",
-			stdin: "world",
-			tty:   true,
-			want:  "world",
+			name:         "re-prompt (empty default)",
+			defaultValue: "",
+			stdin:        "world",
+			tty:          true,
+			want:         "world",
 		},
 		{
 			name:         "re-prompt",
@@ -92,6 +93,12 @@ func TestParamFunc(t *testing.T) {
 			name:         "unsupported",
 			defaultValue: time.Now,
 			tty:          true,
+			wantErr:      true,
+		},
+		{
+			name:         "unsupported param (no TTY)",
+			defaultValue: time.Now,
+			param:        "2022-11-25",
 			wantErr:      true,
 		},
 	}
@@ -288,101 +295,6 @@ func TestUppercase(t *testing.T) {
 		t.Run(tt.value, func(t *testing.T) {
 			got := sut(tt.value)
 			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestConvert(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		value        interface{}
-		other        string
-		isOtherValid bool
-		wantValue    string
-		wantType     string
-		wantDisp     string
-		wantErr      bool
-	}{
-		{
-			name:         "string",
-			value:        "value",
-			other:        "other",
-			wantValue:    "value",
-			wantType:     "a string",
-			isOtherValid: true,
-		},
-		{
-			name:         "int",
-			value:        1,
-			other:        "2",
-			wantValue:    "1",
-			wantType:     "an integer",
-			isOtherValid: true,
-		},
-		{
-			name:      "int (invalid)",
-			value:     1,
-			other:     "other",
-			wantValue: "1",
-			wantType:  "an integer",
-		},
-		{
-			name:         "boolean (true)",
-			value:        true,
-			other:        "y",
-			wantValue:    "true",
-			wantType:     "yes (Y) or no (N)",
-			wantDisp:     "Y/n",
-			isOtherValid: true,
-		},
-		{
-			name:         "boolean (false)",
-			value:        false,
-			other:        "n",
-			wantValue:    "",
-			wantType:     "yes (Y) or no (N)",
-			wantDisp:     "y/N",
-			isOtherValid: true,
-		},
-		{
-			name:      "boolean (invalid)",
-			value:     false,
-			other:     "invalid",
-			wantValue: "",
-			wantType:  "yes (Y) or no (N)",
-			wantDisp:  "y/N",
-		},
-		{
-			name:    "time (unsupported)",
-			value:   time.Now,
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			value, typeDescription, display, format, err := convert(tt.value)
-			if tt.wantErr {
-				assert.Errorf(t, err, "unsupported type")
-				return
-			} else if !assert.NoError(t, err) {
-				return
-			}
-
-			_, ok := format(value)
-			assert.True(t, ok)
-			assert.Equal(t, tt.wantValue, value)
-			assert.Equal(t, tt.wantType, typeDescription)
-
-			if tt.wantDisp == "" {
-				tt.wantDisp = tt.wantValue
-			}
-
-			_, ok = format(tt.other)
-			assert.Equal(t, tt.isOtherValid, ok)
-			assert.Equal(t, tt.wantDisp, display())
 		})
 	}
 }
