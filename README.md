@@ -71,6 +71,10 @@ the following functions are also available:
   on the returned value e.g., `date.Local.Year`.
 * `date.Year`\
   Returns the current UTC year.
+* `true`\
+  Returns `true`. Useful as a default value to accept yes/Y or no/N answers.
+* `false`\
+  Returns `false`. Useful as a default value to accept yes/Y or no/N answers.
 
 Note that `date` functions including `Format`, `Local`, and `Year` are function calls
 and need to be closed in parenthesis if you want to pipe to another function like `printf`:

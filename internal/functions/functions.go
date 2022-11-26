@@ -17,19 +17,36 @@ import (
 func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) func(string, ...any) (string, error) {
 	return func(name string, args ...any) (value string, err error) {
 		var ok bool
-		if value, ok = params[name]; !isTTY {
-			return "", fmt.Errorf("cannot prompt for parameter %q", name)
+		if value, ok = params[name]; ok {
+			// Validate the provided value if a default value was defined.
+			if len(args) == 0 {
+				return
+			}
 
+			var param paramValue
+			param, err = fromDefaultValue(args[0])
+			if err != nil {
+				return
+			}
+
+			if value, ok = param.Format(value); !ok {
+				return "", fmt.Errorf("invalid parameter %q value: %s; expected %s", name, value, param.Description())
+			}
+
+			return
 		} else if !ok {
-			var valueType string
-			var valid func(string) bool
+			if !isTTY {
+				return "", fmt.Errorf("cannot prompt for parameter %q", name)
+			}
 
-			defaultValue := ""
+			var param paramValue
 			if len(args) > 0 {
-				defaultValue, valueType, valid, err = format(args[0])
+				param, err = fromDefaultValue(args[0])
 				if err != nil {
 					return
 				}
+			} else {
+				param = &stringValue{""}
 			}
 
 			prompt := name
@@ -47,7 +64,7 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 			reader := bufio.NewReader(r)
 			for {
 				// Assume color support since we're on a TTY.
-				fmt.Fprintf(w, "\033[32m%s? \033[90m[%s]\033[0m: ", prompt, defaultValue)
+				fmt.Fprintf(w, "\033[32m%s? \033[90m[%s]\033[0m: ", prompt, param.Display())
 
 				value, err = reader.ReadString('\n')
 				if err != nil {
@@ -56,14 +73,15 @@ func ParamFunc(r io.Reader, w io.Writer, isTTY bool, params map[string]string) f
 
 				value = strings.TrimSpace(value)
 				if value == "" {
-					value = defaultValue
-				}
-
-				if valid(value) {
+					value = param.String()
 					break
 				}
 
-				fmt.Fprintf(w, "\033[31mExpected %s. Please try again.\033[0m\n", valueType)
+				if value, ok = param.Format(value); ok {
+					break
+				}
+
+				fmt.Fprintf(w, "\033[31mExpected %s. Please try again.\033[0m\n", param.Description())
 			}
 
 			params[name] = value
@@ -113,19 +131,4 @@ func UppercaseFunc(lang language.Tag) func(string) string {
 	return func(s string) string {
 		return c.String(s)
 	}
-}
-
-func format(v any) (value, valueType string, validate func(string) bool, err error) {
-	if s, ok := v.(string); ok || v == nil {
-		return s, "string", func(s string) bool { return true }, nil
-	}
-
-	if i, ok := v.(int); ok {
-		return strconv.FormatInt(int64(i), 10), "integer", func(s string) bool {
-			_, err := strconv.ParseInt(s, 10, 32)
-			return err == nil
-		}, nil
-	}
-
-	return "", "", nil, fmt.Errorf("unsupported type %v", v)
 }
