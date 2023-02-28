@@ -132,3 +132,7 @@ func UppercaseFunc(lang language.Tag) func(string) string {
 		return c.String(s)
 	}
 }
+
+func Replace(from, to, source string) string {
+	return strings.Replace(source, from, to, -1)
+}

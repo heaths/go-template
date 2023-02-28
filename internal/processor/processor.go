@@ -76,6 +76,7 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 		"titlecase": functions.TitlecaseFunc(*p.Language),
 		"uppercase": functions.UppercaseFunc(*p.Language),
 		"pluralize": functions.PluralizeFunc,
+		"replace":   functions.Replace,
 		"date":      functions.DateFunc,
 		"true":      func() bool { return true },
 		"false":     func() bool { return false },
