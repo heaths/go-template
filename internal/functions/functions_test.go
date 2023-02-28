@@ -298,3 +298,10 @@ func TestUppercase(t *testing.T) {
 		})
 	}
 }
+
+func TestReplace(t *testing.T) {
+	t.Parallel()
+
+	sut := Replace("-", "_", "my-crate")
+	assert.Equal(t, "my_crate", sut)
+}
