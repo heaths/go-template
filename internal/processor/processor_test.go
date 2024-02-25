@@ -15,6 +15,7 @@ import (
 	"github.com/heaths/go-console"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
 )
@@ -66,13 +67,13 @@ func TestProcessor_Execute(t *testing.T) {
 			)
 
 			srcFS := afero.NewMemMapFs()
-			assert.NoError(t, srcFS.Mkdir(".git", 0755))
-			assert.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
-			assert.NoError(t, srcFS.Mkdir("build", 0755))
-			assert.NoError(t, afero.WriteFile(srcFS, "build/dat", []byte{00, 01, 02, 03}, 0644))
-			assert.NoError(t, srcFS.Mkdir("testdata", 0755))
-			assert.NoError(t, afero.WriteFile(srcFS, "testdata/a.md", []byte(tt.content), 0644))
-			assert.NoError(t, afero.WriteFile(srcFS, "testdata/b.md", []byte("not a template"), 0644))
+			require.NoError(t, srcFS.Mkdir(".git", 0755))
+			require.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
+			require.NoError(t, srcFS.Mkdir("build", 0755))
+			require.NoError(t, afero.WriteFile(srcFS, "build/dat", []byte{00, 01, 02, 03}, 0644))
+			require.NoError(t, srcFS.Mkdir("testdata", 0755))
+			require.NoError(t, afero.WriteFile(srcFS, "testdata/a.md", []byte(tt.content), 0644))
+			require.NoError(t, afero.WriteFile(srcFS, "testdata/b.md", []byte("not a template"), 0644))
 
 			dstFS := afero.NewMemMapFs()
 
@@ -109,12 +110,10 @@ func TestProcessor_Execute(t *testing.T) {
 
 			const path = "testdata/a.md"
 			file, err := dstFS.Open(path)
-			if !assert.NoError(t, err, "failed to open %q", path) {
-				return
-			}
+			require.NoError(t, err, "failed to open %q", path)
 
 			got, err := io.ReadAll(file)
-			assert.NoError(t, err, "failed to read %q", path)
+			require.NoError(t, err, "failed to read %q", path)
 
 			// There's a small but acceptable window where the year could be different due to TZ offset.
 			want := heredoc.Docf(`
@@ -126,6 +125,79 @@ func TestProcessor_Execute(t *testing.T) {
 				`, strconv.FormatInt(int64(time.Now().UTC().Year()), 10))
 
 			assert.Equal(t, want, string(got))
+		})
+	}
+}
+
+func TestProcessor_Execute_delete(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		release bool
+	}{
+		{
+			name:    "release",
+			content: content_a,
+			release: true,
+		},
+		{
+			name:    "no release",
+			content: content_a,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			con := console.Fake(
+				console.WithStdin(bytes.NewBufferString("template\n")),
+				console.WithStderrTTY(true),
+			)
+
+			const path = ".github/workflows/release.yml"
+			srcFS := afero.NewMemMapFs()
+			require.NoError(t, srcFS.Mkdir(".git", 0755))
+			require.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
+			require.NoError(t, srcFS.MkdirAll(".github/workflows", 0755))
+			require.NoError(t, afero.WriteFile(srcFS, path, []byte("{{if not (param \"release\" true \"Do you need release pipelines?\")}}{{deleteFile}}{{end -}}\nname: release"), 0644))
+
+			dstFS := afero.NewMemMapFs()
+
+			proc := Processor{
+				Stderr: con.Stderr(),
+				Stdin:  con.Stdin(),
+				IsTTY:  con.IsStderrTTY(),
+
+				srcFS: srcFS,
+				dstFS: afero.NewCopyOnWriteFs(srcFS, dstFS),
+			}
+			proc.Initialize()
+
+			params := map[string]string{
+				"git.name":     "Heath Stewart",
+				"github.owner": "heaths",
+				"github.repo":  "template-golang",
+				"release":      strconv.FormatBool(tt.release),
+			}
+			err = proc.Execute(".", params)
+			assert.NoError(t, err, "failed to process template")
+
+			_, err = dstFS.Stat(".git")
+			assert.Error(t, err)
+
+			file, err := dstFS.Open(path)
+			if tt.release {
+				require.NoError(t, err, "failed to open %q, path")
+
+				got, err := io.ReadAll(file)
+				require.NoError(t, err, "failed to read %q", path)
+
+				assert.Equal(t, "name: release", string(got))
+			} else {
+				assert.Error(t, err, "%q should not exist", path)
+			}
 		})
 	}
 }

@@ -77,6 +77,8 @@ the following functions are also available:
   Returns `true`. Useful as a default value to accept yes/Y or no/N answers.
 * `false`\
   Returns `false`. Useful as a default value to accept yes/Y or no/N answers.
+* `deleteFile`\
+  Deletes the current file.
 
 Note that `date` functions including `Format`, `Local`, and `Year` are function calls
 and need to be closed in parenthesis if you want to pipe to another function like `printf`:

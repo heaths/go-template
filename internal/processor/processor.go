@@ -70,16 +70,18 @@ func (p *Processor) Initialize() {
 }
 
 func (p *Processor) Execute(root string, params map[string]string) error {
+	var deleteFile bool
 	funcs := template.FuncMap{
-		"param":     functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
-		"lowercase": functions.LowercaseFunc(*p.Language),
-		"titlecase": functions.TitlecaseFunc(*p.Language),
-		"uppercase": functions.UppercaseFunc(*p.Language),
-		"pluralize": functions.PluralizeFunc,
-		"replace":   functions.Replace,
-		"date":      functions.DateFunc,
-		"true":      func() bool { return true },
-		"false":     func() bool { return false },
+		"param":      functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
+		"lowercase":  functions.LowercaseFunc(*p.Language),
+		"titlecase":  functions.TitlecaseFunc(*p.Language),
+		"uppercase":  functions.UppercaseFunc(*p.Language),
+		"pluralize":  functions.PluralizeFunc,
+		"replace":    functions.Replace,
+		"date":       functions.DateFunc,
+		"true":       func() bool { return true },
+		"false":      func() bool { return false },
+		"deleteFile": functions.DeleteFunc(&deleteFile),
 	}
 
 	// cspell:ignore IOFS
@@ -131,10 +133,20 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 			return
 		}
 
+		deleteFile = false
 		err = t.Execute(file, nil)
+		file.Close()
+
 		if err != nil {
 			p.logWarning("failed to process %q: %v\n", path, err)
 			return
+		}
+
+		if deleteFile {
+			if err = p.dstFS.Remove(path); err != nil {
+				p.logWarning("failed to delete %q: %v\n", path, err)
+				return
+			}
 		}
 
 		return

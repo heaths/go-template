@@ -136,3 +136,10 @@ func UppercaseFunc(lang language.Tag) func(string) string {
 func Replace(from, to, source string) string {
 	return strings.Replace(source, from, to, -1)
 }
+
+func DeleteFunc(delete *bool) func() string {
+	return func() string {
+		*delete = true
+		return ""
+	}
+}
