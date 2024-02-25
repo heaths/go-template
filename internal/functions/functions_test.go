@@ -309,9 +309,20 @@ func TestReplace(t *testing.T) {
 func TestDelete(t *testing.T) {
 	t.Parallel()
 
+	current := "current"
 	var delete bool
-	sut := DeleteFunc(&delete)
+	var values []string
+	sut := DeleteFunc(&current, &delete, &values)
 
 	assert.Equal(t, "", sut())
 	assert.True(t, delete)
+	assert.Equal(t, []string{"current"}, values)
+
+	assert.Equal(t, "", sut("foo", "bar"))
+	assert.True(t, delete)
+	assert.Equal(t, []string{"current", "foo", "bar"}, values)
+
+	assert.Equal(t, "", sut("baz"))
+	assert.True(t, delete)
+	assert.Equal(t, []string{"current", "foo", "bar", "baz"}, values)
 }
