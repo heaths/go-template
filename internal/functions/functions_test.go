@@ -305,3 +305,13 @@ func TestReplace(t *testing.T) {
 	sut := Replace("-", "_", "my-crate")
 	assert.Equal(t, "my_crate", sut)
 }
+
+func TestDelete(t *testing.T) {
+	t.Parallel()
+
+	var delete bool
+	sut := DeleteFunc(&delete)
+
+	assert.Equal(t, "", sut())
+	assert.True(t, delete)
+}
