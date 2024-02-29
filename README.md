@@ -78,7 +78,7 @@ the following functions are also available:
 * `false`\
   Returns `false`. Useful as a default value to accept yes/Y or no/N answers.
 * `deleteFile`\
-  Deletes the current file.
+  Deletes the current file, or a list of file names relative to the repo root.
 
 Note that `date` functions including `Format`, `Local`, and `Year` are function calls
 and need to be closed in parenthesis if you want to pipe to another function like `printf`:

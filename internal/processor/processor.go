@@ -70,7 +70,19 @@ func (p *Processor) Initialize() {
 }
 
 func (p *Processor) Execute(root string, params map[string]string) error {
-	var deleteFile bool
+	var current string
+	var deleteFiles bool
+	var filesToDelete []string
+	reset := func(path string) {
+		current = path
+		deleteFiles = false
+		filesToDelete = nil
+	}
+
+	// Keep track of files to delete until we're finished;
+	// otherwise, not all files to delete may yet exist in the destination FS.
+	allFilesToDelete := make([]string, 0)
+
 	funcs := template.FuncMap{
 		"param":      functions.ParamFunc(p.Stdin, p.Stderr, p.IsTTY, params),
 		"lowercase":  functions.LowercaseFunc(*p.Language),
@@ -81,7 +93,7 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 		"date":       functions.DateFunc,
 		"true":       func() bool { return true },
 		"false":      func() bool { return false },
-		"deleteFile": functions.DeleteFunc(&deleteFile),
+		"deleteFile": functions.DeleteFunc(&current, &deleteFiles, &filesToDelete),
 	}
 
 	// cspell:ignore IOFS
@@ -133,7 +145,7 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 			return
 		}
 
-		deleteFile = false
+		reset(path)
 		err = t.Execute(file, nil)
 		file.Close()
 
@@ -142,11 +154,8 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 			return
 		}
 
-		if deleteFile {
-			if err = p.dstFS.Remove(path); err != nil {
-				p.logWarning("failed to delete %q: %v\n", path, err)
-				return
-			}
+		if deleteFiles {
+			allFilesToDelete = append(allFilesToDelete, filesToDelete...)
 		}
 
 		return
@@ -154,6 +163,14 @@ func (p *Processor) Execute(root string, params map[string]string) error {
 
 	if err != nil {
 		return err
+	}
+
+	// Delete files that should now exist in the destination FS.
+	for _, fileToDelete := range allFilesToDelete {
+		p.logVerbose("deleting %q", fileToDelete)
+		if err = p.dstFS.Remove(fileToDelete); err != nil {
+			p.logWarning("failed to delete %q: %v\n", fileToDelete, err)
+		}
 	}
 
 	if p.errors == 0 {

@@ -134,17 +134,14 @@ func TestProcessor_Execute_delete(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		content string
 		release bool
 	}{
 		{
 			name:    "release",
-			content: content_a,
 			release: true,
 		},
 		{
-			name:    "no release",
-			content: content_a,
+			name: "no release",
 		},
 	}
 
@@ -161,9 +158,11 @@ func TestProcessor_Execute_delete(t *testing.T) {
 			require.NoError(t, srcFS.Mkdir(".git", 0755))
 			require.NoError(t, afero.WriteFile(srcFS, ".git/index", []byte("Head: main"), 0644))
 			require.NoError(t, srcFS.MkdirAll(".github/workflows", 0755))
-			require.NoError(t, afero.WriteFile(srcFS, path, []byte("{{if not (param \"release\" true \"Do you need release pipelines?\")}}{{deleteFile}}{{end -}}\nname: release"), 0644))
+			require.NoError(t, afero.WriteFile(srcFS, path, []byte("{{if not (param \"release\" true \"Do you need release pipelines?\")}}{{deleteFile}}{{deleteFile \"CHANGELOG.md\"}}{{end -}}\nname: release"), 0644))
+			require.NoError(t, afero.WriteFile(srcFS, "CHANGELOG.md", []byte("# Changes"), 0644))
 
-			dstFS := afero.NewMemMapFs()
+			// Use the same FS to check deleted files.
+			dstFS := srcFS
 
 			proc := Processor{
 				Stderr: con.Stderr(),
@@ -171,7 +170,7 @@ func TestProcessor_Execute_delete(t *testing.T) {
 				IsTTY:  con.IsStderrTTY(),
 
 				srcFS: srcFS,
-				dstFS: afero.NewCopyOnWriteFs(srcFS, dstFS),
+				dstFS: dstFS,
 			}
 			proc.Initialize()
 
@@ -185,7 +184,7 @@ func TestProcessor_Execute_delete(t *testing.T) {
 			assert.NoError(t, err, "failed to process template")
 
 			_, err = dstFS.Stat(".git")
-			assert.Error(t, err)
+			assert.NoError(t, err)
 
 			file, err := dstFS.Open(path)
 			if tt.release {
@@ -195,8 +194,14 @@ func TestProcessor_Execute_delete(t *testing.T) {
 				require.NoError(t, err, "failed to read %q", path)
 
 				assert.Equal(t, "name: release", string(got))
+
+				_, err = dstFS.Stat("CHANGELOG.md")
+				assert.NoError(t, err, "CHANGELOG.md should exist")
 			} else {
 				assert.Error(t, err, "%q should not exist", path)
+
+				_, err = dstFS.Stat("CHANGELOG.md")
+				assert.Error(t, err, "CHANGELOG.md should not exist")
 			}
 		})
 	}

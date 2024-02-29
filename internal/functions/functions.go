@@ -137,9 +137,14 @@ func Replace(from, to, source string) string {
 	return strings.Replace(source, from, to, -1)
 }
 
-func DeleteFunc(delete *bool) func() string {
-	return func() string {
+func DeleteFunc(current *string, delete *bool, values *[]string) func(...string) string {
+	return func(str ...string) string {
 		*delete = true
+		if len(str) == 0 {
+			*values = append(*values, *current)
+		} else {
+			*values = append(*values, str...)
+		}
 		return ""
 	}
 }
